@@ -208,9 +208,9 @@
               <div>
                 {% if eq.images.all %}
                   <div class="image-slider-container" style="position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; background-color: #000; margin-bottom: 16px; border: 1px solid var(--border);">
-                    <div class="slides-wrapper" id="slider-{{ eq.id }}" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+                    <div class="slides-wrapper" id="slider-{{ eq.id }}" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0;">
                       {% for img in eq.images.all %}
-                        <img src="{{ img.image.url }}" class="slider-slide" style="width: 100%; height: 100%; object-fit: cover; flex-shrink: 0; cursor: pointer;" onclick="openLightbox('{{ eq.id }}', {{ forloop.index0 }})" title="Click to open full zoom gallery">
+                        <img src="{{ img.image.url }}" class="slider-slide" style="min-width: 100%; max-width: 100%; width: 100%; height: 100%; object-fit: cover; flex-shrink: 0; cursor: pointer;" onclick="openLightbox('{{ eq.id }}', {{ forloop.index0 }})" title="Click to open full zoom gallery">
                       {% endfor %}
                     </div>
                     {% if eq.images.count > 1 %}

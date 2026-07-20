@@ -312,7 +312,6 @@ def add_equipment(request):
         provider_profile = request.user.provider_profile
         
         images = request.FILES.getlist('images')
-        primary_image = images[0] if images else None
         
         equipment = ProviderEquipment.objects.create(
             provider=provider_profile,
@@ -320,7 +319,6 @@ def add_equipment(request):
             equipment_name=name,
             description=description,
             price_per_hour=price_per_hour,
-            image=primary_image,
             availability_status=True
         )
         
@@ -329,6 +327,13 @@ def add_equipment(request):
                 equipment=equipment,
                 image=img
             )
+            
+        # Set primary image from first created gallery image
+        primary_eq_img = equipment.images.first()
+        if primary_eq_img and primary_eq_img.image:
+            equipment.image = primary_eq_img.image
+            equipment.save(update_fields=['image'])
+
         messages.success(request, f"Machinery '{name}' listed successfully!")
         
     return redirect('web:provider_dashboard')
@@ -365,15 +370,17 @@ def edit_equipment(request, pk):
                         logger.error(f"Failed to delete old image file: {str(e)}")
             old_images.delete()
             
-            # Set first image as primary
-            equipment.image = images[0]
-            
-            # Create new ones
+            # Create new ones first
             for img in images:
                 EquipmentImage.objects.create(
                     equipment=equipment,
                     image=img
                 )
+                
+            # Set primary image from first created gallery image
+            primary_eq_img = equipment.images.first()
+            if primary_eq_img and primary_eq_img.image:
+                equipment.image = primary_eq_img.image
                 
         equipment.save()
         messages.success(request, f"Machinery '{name}' updated successfully!")

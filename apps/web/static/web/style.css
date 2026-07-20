@@ -414,6 +414,8 @@ h1, h2, h3, h4 {
   z-index: 1000;
   justify-content: center;
   align-items: center;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .modal.active {
@@ -426,9 +428,11 @@ h1, h2, h3, h4 {
   padding: 32px;
   border-radius: 24px;
   max-width: 500px;
-  width: 90%;
+  width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-close {
