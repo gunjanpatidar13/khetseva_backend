@@ -1,0 +1,541 @@
+{% extends 'web/base.html' %}
+{% load static %}
+
+{% block title %}KhetSeva - My Profile Settings{% endblock %}
+
+{% block content %}
+<!-- Full-width layout wrapper -->
+<div style="max-width: 1100px; margin: 40px auto; padding: 0 20px;">
+  <!-- If profile is incomplete, display a prominent warning banner -->
+  {% if not profile_complete %}
+    <div class="alert alert-error" style="margin-bottom: 30px; animation: fadeIn 0.4s ease;">
+      <span>⚠️ <strong>Profile Incomplete:</strong> Please provide your full name, village, district, and state to activate booking/listing.</span>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'web:profile' %}" enctype="multipart/form-data" class="needs-validation" id="profile-form">
+    {% csrf_token %}
+
+    <div style="display: grid; grid-template-columns: 320px 1fr; gap: 30px; align-items: start; flex-wrap: wrap;">
+      
+      <!-- Left Column: Avatar Card -->
+      <div class="card" style="padding: 30px; text-align: center; border-radius: var(--radius); position: sticky; top: 100px;">
+        <div style="position: relative; width: 140px; height: 140px; margin: 0 auto 20px auto; border-radius: 50%; overflow: hidden; border: 4px solid var(--primary-light); box-shadow: var(--shadow);">
+          <!-- Dynamic Profile Image -->
+          {% if user.profile_picture %}
+            <img id="avatar-preview" src="{{ user.profile_picture.url }}" alt="Profile Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+          {% else %}
+            <div id="avatar-placeholder" style="width: 100%; height: 100%; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 800;">
+              {{ user.full_name|slice:":1"|upper }}
+            </div>
+            <img id="avatar-preview" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+          {% endif %}
+          
+          <!-- Upload overlay -->
+          <label for="profile_picture" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.6); color: white; font-size: 11px; padding: 6px 0; cursor: pointer; font-weight: 700; transition: var(--transition);">
+            📷 CHANGE PHOTO
+          </label>
+          <input type="file" name="profile_picture" id="profile_picture" accept="image/*" style="display: none;" onchange="previewAvatar(this)">
+        </div>
+
+        <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 6px; color: var(--text);">{{ user.full_name }}</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">+91 {{ user.mobile }}</p>
+        
+        <!-- Role Badge -->
+        <div style="margin-bottom: 24px;">
+          {% if user.role == 'FARMER' %}
+            <span class="badge" style="background-color: var(--primary-light); color: var(--primary); padding: 8px 16px; font-size: 13px; font-weight: 700;">🌾 Registered Farmer</span>
+          {% else %}
+            <span class="badge" style="background-color: #e0f2f1; color: #00796b; padding: 8px 16px; font-size: 13px; font-weight: 700;">🚜 Service Provider</span>
+          {% endif %}
+        </div>
+
+        <!-- Verification status badge (Only shows if provider) -->
+        <div id="left-verification-badge-div" style="margin-bottom: 24px; {% if user.role != 'PROVIDER' %}display: none;{% endif %}">
+          <strong style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">KYC VERIFICATION STATUS</strong>
+          {% if provider_profile.verification_status == 'APPROVED' %}
+            <span class="badge" style="background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; font-weight: 700; font-size: 12px; padding: 6px 12px;">✅ APPROVED PARTNER</span>
+          {% elif provider_profile.verification_status == 'REJECTED' %}
+            <span class="badge" style="background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; font-weight: 700; font-size: 12px; padding: 6px 12px;">❌ DOCUMENTS REJECTED</span>
+          {% else %}
+            <span class="badge" style="background-color: #fff8e1; color: #f57f17; border: 1px solid #ffe082; font-weight: 700; font-size: 12px; padding: 6px 12px;">⏳ PENDING VERIFICATION</span>
+          {% endif %}
+        </div>
+
+        <!-- Profile completion tracker -->
+        <div style="border-top: 1px solid var(--border); padding-top: 20px; text-align: left;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: var(--text-muted);">
+            <span>Setup Progress</span>
+            <span>{% if profile_complete %}100%{% else %}40%{% endif %}</span>
+          </div>
+          <div style="width: 100%; height: 8px; background-color: var(--bg); border-radius: 4px; overflow: hidden; border: 1px solid var(--border);">
+            <div style="width: {% if profile_complete %}100%{% else %}40%{% endif %}; height: 100%; background-color: var(--primary); transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Settings Cards -->
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        
+        <!-- Card 1: Account Settings -->
+        <div class="card" style="padding: 30px; border-radius: var(--radius);">
+          <h4 style="font-size: 18px; color: var(--primary); margin-bottom: 20px; font-weight: 700; border-bottom: 2px solid var(--primary-light); padding-bottom: 8px;">⚙️ Personal Information</h4>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="full_name">Full Name <span style="color: #d32f2f;">*</span></label>
+              <input type="text" name="full_name" id="full_name" class="form-control" value="{{ user.full_name }}" placeholder="Enter your full name" required minlength="3">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="role">Account Type <span style="color: #d32f2f;">*</span></label>
+              <select name="role" id="role" class="form-control" onchange="toggleProviderFields()">
+                <option value="FARMER" {% if user.role == 'FARMER' %}selected{% endif %}>Farmer</option>
+                <option value="PROVIDER" {% if user.role == 'PROVIDER' %}selected{% endif %}>Service Provider</option>
+              </select>
+            </div>
+          </div>
+
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="state-select">State <span style="color: #d32f2f;">*</span></label>
+              <select name="state" id="state-select" class="form-control" required onchange="onStateChange()">
+                <option value="">Select State</option>
+              </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="district-select">District <span style="color: #d32f2f;">*</span></label>
+              <select name="district" id="district-select" class="form-control" required onchange="onDistrictChange()">
+                <option value="">Select District</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="village-select">Village / Locality <span style="color: #d32f2f;">*</span></label>
+            <select name="village" id="village-select" class="form-control" required onchange="onVillageChange()">
+              <option value="">Select Village</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="custom-village-group" style="display: none; animation: fadeIn 0.3s ease;">
+            <label for="custom-village-input">Enter Village Name <span style="color: #d32f2f;">*</span></label>
+            <input type="text" id="custom-village-input" name="custom_village" class="form-control" placeholder="Type your village/locality name">
+          </div>
+
+          <!-- Autodetect Current Location Button -->
+          <button type="button" class="btn btn-outline" id="detect-location-btn" onclick="detectCurrentLocation()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 24px; border-color: var(--primary); color: var(--primary); font-weight: 700; height: 44px; border-radius: 12px; transition: var(--transition);">
+            📍 Autodetect Current Location
+          </button>
+
+          <!-- Speciality (Only shows if provider role active) -->
+          <div class="form-group" id="provider-speciality-div" style="margin-top: 20px; display: none;">
+            <label for="provider_type_id">Provider Speciality / Machinery Category</label>
+            <select name="provider_type_id" id="provider_type_id" class="form-control">
+              <option value="">Select Speciality Category</option>
+              {% for p_type in provider_types %}
+                <option value="{{ p_type.id }}" {% if provider_profile.provider_type_id == p_type.id %}selected{% endif %}>{{ p_type.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+
+        <!-- Card 3: Provider Document Upload Verification (Toggled by JS) -->
+        <div class="card" id="provider-documents-card" style="padding: 30px; border-radius: var(--radius); display: none;">
+          <h4 style="font-size: 18px; color: var(--primary); margin-bottom: 12px; font-weight: 700; border-bottom: 2px solid var(--primary-light); padding-bottom: 8px;">🪪 Legal Verification Documents (KYC)</h4>
+          <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Provide verification credentials to list equipments and accept bookings.</p>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="aadhaar_number">Aadhaar Card Number (12 Digits)</label>
+              <input type="text" name="aadhaar_number" id="aadhaar_number" class="form-control" value="{{ provider_profile.aadhaar_number }}" placeholder="e.g. 123456789012" pattern="[0-9]{12}" maxlength="12">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="pan_number">PAN Card Number (10 Digits)</label>
+              <input type="text" name="pan_number" id="pan_number" class="form-control" value="{{ provider_profile.pan_number }}" placeholder="e.g. ABCDE1234F" pattern="[a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}" maxlength="10">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="document_file">Upload ID Document (Aadhaar / PAN Copy)</label>
+            <input type="file" name="document_file" id="document_file" class="form-control" accept="image/*,application/pdf">
+            {% if provider_profile.document_file %}
+              <div style="margin-top: 10px; font-size: 13px;">
+                📄 Current document: <a href="{{ provider_profile.document_file.url }}" target="_blank" style="color: var(--primary); font-weight: 700;">View Uploaded ID File</a>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; height: 48px; font-size: 16px; font-weight: 700; border-radius: 12px; margin-top: 10px; box-shadow: 0 4px 15px rgba(46, 125, 50, 0.2);">
+          💾 Save Changes & Update Profile
+        </button>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script>
+  function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('avatar-preview');
+        const placeholder = document.getElementById('avatar-placeholder');
+        if (placeholder) placeholder.style.display = 'none';
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function toggleProviderFields() {
+    const roleSelect = document.getElementById('role');
+    const providerDiv = document.getElementById('provider-speciality-div');
+    const providerCard = document.getElementById('provider-documents-card');
+    const verificationBadge = document.getElementById('left-verification-badge-div');
+    
+    if (roleSelect) {
+      const isProvider = roleSelect.value === 'PROVIDER';
+      if (providerDiv) providerDiv.style.display = isProvider ? 'block' : 'none';
+      if (providerCard) providerCard.style.display = isProvider ? 'block' : 'none';
+      if (verificationBadge) verificationBadge.style.display = isProvider ? 'block' : 'none';
+    }
+  }
+
+  let locationData = null;
+  const initialSavedState = "{% if user.role == 'FARMER' %}{{ farmer_profile.state|escapejs }}{% else %}{{ provider_profile.state|escapejs }}{% endif %}";
+  const initialSavedDistrict = "{% if user.role == 'FARMER' %}{{ farmer_profile.district|escapejs }}{% else %}{{ provider_profile.district|escapejs }}{% endif %}";
+  const initialSavedVillage = "{% if user.role == 'FARMER' %}{{ farmer_profile.village|escapejs }}{% else %}{{ provider_profile.village|escapejs }}{% endif %}";
+
+  const preseededVillages = {
+    "Patiala": ["Navipura", "Kalyan", "Dakha", "Bahadurgarh", "Samana", "Nabha", "Patran", "Rajpura", "Devigarh"],
+    "Karnal": ["Nilokheri", "Indri", "Gharaunda", "Taraori", "Kunjpura", "Munak", "Nissing", "Assandh", "Salwan"],
+    "Ludhiana": ["Mullanpur", "Sahnewal", "Doraha", "Halwara", "Jagraon", "Samrala", "Khanna", "Payal", "Raikot"],
+    "Amritsar": ["Jandiala", "Rayya", "Majitha", "Ajnala", "Chogawan", "Attari", "Ramdas", "Baba Bakala"],
+    "Jaipur": ["Chomu", "Sanganer", "Amer", "Shahpura", "Kotputli", "Phulera", "Bassi", "Lalsot"],
+    "Pune": ["Baramati", "Shirur", "Ambegaon", "Indapur", "Khed", "Maval", "Mulshi", "Haveli"],
+    "Bathinda": ["Raman", "Maur", "Talwandi Sabo", "Bhucho Mandi", "Gangat", "Sangat", "Nathana"]
+  };
+
+  function getVillagesForDistrict(district) {
+    if (preseededVillages[district]) {
+      return preseededVillages[district];
+    }
+    return [
+      `${district}pur`,
+      `${district}garh`,
+      `${district}gaon`,
+      `${district}nagar`,
+      `Kalyanpura`,
+      `Rampura`,
+      `Govindgarh`,
+      `Gopalpura`,
+      `Navipura`,
+      `Premnagar`
+    ];
+  }
+
+  function loadLocationData() {
+    fetch("{% static 'web/states_districts.json' %}")
+      .then(res => res.json())
+      .then(data => {
+        locationData = data.states;
+        populateStates();
+      })
+      .catch(err => console.error("Error loading location JSON: ", err));
+  }
+
+  function populateStates() {
+    const stateSelect = document.getElementById('state-select');
+    if (!stateSelect || !locationData) return;
+    
+    stateSelect.innerHTML = '<option value="">Select State</option>';
+    
+    locationData.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.state;
+      opt.innerText = item.state;
+      stateSelect.appendChild(opt);
+    });
+
+    if (initialSavedState) {
+      stateSelect.value = initialSavedState;
+      onStateChange(initialSavedDistrict);
+    }
+  }
+
+  function onStateChange(presetDistrict = null) {
+    const stateSelect = document.getElementById('state-select');
+    const districtSelect = document.getElementById('district-select');
+    const villageSelect = document.getElementById('village-select');
+    const customGroup = document.getElementById('custom-village-group');
+    
+    if (!stateSelect || !districtSelect) return;
+    
+    districtSelect.innerHTML = '<option value="">Select District</option>';
+    villageSelect.innerHTML = '<option value="">Select Village</option>';
+    if (customGroup) customGroup.style.display = 'none';
+    
+    const selectedState = stateSelect.value;
+    if (!selectedState || !locationData) return;
+    
+    const stateObj = locationData.find(item => item.state === selectedState);
+    if (stateObj && stateObj.districts) {
+      stateObj.districts.forEach(dist => {
+        const opt = document.createElement('option');
+        opt.value = dist;
+        opt.innerText = dist;
+        districtSelect.appendChild(opt);
+      });
+    }
+
+    if (presetDistrict) {
+      districtSelect.value = presetDistrict;
+      onDistrictChange(initialSavedVillage);
+    }
+  }
+
+  function onDistrictChange(presetVillage = null) {
+    const districtSelect = document.getElementById('district-select');
+    const villageSelect = document.getElementById('village-select');
+    const customGroup = document.getElementById('custom-village-group');
+    
+    if (!districtSelect || !villageSelect) return;
+    
+    villageSelect.innerHTML = '<option value="">Select Village</option>';
+    if (customGroup) customGroup.style.display = 'none';
+    
+    const selectedDist = districtSelect.value;
+    if (!selectedDist) return;
+    
+    const villages = getVillagesForDistrict(selectedDist);
+    villages.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.innerText = v;
+      villageSelect.appendChild(opt);
+    });
+    
+    const otherOpt = document.createElement('option');
+    otherOpt.value = "custom";
+    otherOpt.innerText = "➕ Other / Custom Village...";
+    villageSelect.appendChild(otherOpt);
+
+    if (presetVillage) {
+      if (villages.includes(presetVillage)) {
+        villageSelect.value = presetVillage;
+      } else {
+        villageSelect.value = "custom";
+        const customInput = document.getElementById('custom-village-input');
+        if (customInput) customInput.value = presetVillage;
+        if (customGroup) customGroup.style.display = 'block';
+      }
+    }
+  }
+
+  function onVillageChange() {
+    const villageSelect = document.getElementById('village-select');
+    const customGroup = document.getElementById('custom-village-group');
+    const customInput = document.getElementById('custom-village-input');
+    
+    if (!villageSelect || !customGroup) return;
+    
+    if (villageSelect.value === "custom") {
+      customGroup.style.display = 'block';
+      if (customInput) {
+        customInput.required = true;
+        customInput.focus();
+      }
+    } else {
+      customGroup.style.display = 'none';
+      if (customInput) {
+        customInput.required = false;
+        customInput.value = '';
+      }
+    }
+  }
+
+  // Geolocation-based Reverse Geocoding Autodetect
+  function detectCurrentLocation() {
+    const btn = document.getElementById('detect-location-btn');
+    if (!btn) return;
+    
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Detecting Location...';
+    btn.disabled = true;
+    
+    if (!("geolocation" in navigator)) {
+      showErrorToast("Geolocation is not supported by your browser.");
+      resetDetectBtn(btn, originalText);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      function(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lon}`;
+        
+        fetch(url)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.address) {
+              populateDetectedAddress(data.address, lat, lon);
+              showSuccessToast("Location detected successfully!");
+            } else {
+              showErrorToast("Could not resolve location address.");
+            }
+            resetDetectBtn(btn, originalText);
+          })
+          .catch(err => {
+            console.error("Reverse Geocoding error: ", err);
+            showErrorToast("Error resolving address details.");
+            resetDetectBtn(btn, originalText);
+          });
+      },
+      function(error) {
+        console.warn("Geolocation error: ", error);
+        showErrorToast("Permission denied or location unavailable.");
+        resetDetectBtn(btn, originalText);
+      },
+      { timeout: 10000 }
+    );
+  }
+
+  function resetDetectBtn(btn, text) {
+    btn.innerHTML = text;
+    btn.disabled = false;
+  }
+
+  function showSuccessToast(msg) {
+    let container = document.querySelector('.messages-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'messages-container';
+      document.body.appendChild(container);
+    }
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success';
+    alertDiv.innerHTML = `
+      <span style="font-size: 16px;">✅</span>
+      <span style="flex-grow: 1;">${msg}</span>
+      <button class="alert-close" onclick="this.parentElement.remove()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><line x1="9" y1="3" x2="3" y2="9"></line><line x1="3" y1="3" x2="9" y2="9"></line></svg>
+      </button>
+    `;
+    container.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 4500);
+  }
+
+  function showErrorToast(msg) {
+    let container = document.querySelector('.messages-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'messages-container';
+      document.body.appendChild(container);
+    }
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-error';
+    alertDiv.innerHTML = `
+      <span style="font-size: 16px;">⚠️</span>
+      <span style="flex-grow: 1;">${msg}</span>
+      <button class="alert-close" onclick="this.parentElement.remove()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><line x1="9" y1="3" x2="3" y2="9"></line><line x1="3" y1="3" x2="9" y2="9"></line></svg>
+      </button>
+    `;
+    container.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 4500);
+  }
+
+  function populateDetectedAddress(addr, lat, lon) {
+    const state = addr.state || "";
+    const district = addr.county || addr.state_district || "";
+    const village = addr.village || addr.town || addr.suburb || addr.hamlet || addr.municipality || addr.city || "";
+    
+    const stateSelect = document.getElementById('state-select');
+    const districtSelect = document.getElementById('district-select');
+    const villageSelect = document.getElementById('village-select');
+    
+    if (stateSelect && state) {
+      let foundState = "";
+      Array.from(stateSelect.options).forEach(opt => {
+        if (opt.value.toLowerCase() === state.toLowerCase() || state.toLowerCase().includes(opt.value.toLowerCase())) {
+          foundState = opt.value;
+        }
+      });
+      
+      if (foundState) {
+        stateSelect.value = foundState;
+        onStateChange();
+        
+        if (districtSelect && district) {
+          let foundDistrict = "";
+          Array.from(districtSelect.options).forEach(opt => {
+            if (opt.value.toLowerCase() === district.toLowerCase() || district.toLowerCase().includes(opt.value.toLowerCase())) {
+              foundDistrict = opt.value;
+            }
+          });
+          
+          if (foundDistrict) {
+            districtSelect.value = foundDistrict;
+            onDistrictChange();
+            
+            if (villageSelect && village) {
+              let foundVillage = "";
+              Array.from(villageSelect.options).forEach(opt => {
+                if (opt.value.toLowerCase() === village.toLowerCase()) {
+                  foundVillage = opt.value;
+                }
+              });
+              
+              if (foundVillage) {
+                villageSelect.value = foundVillage;
+                onVillageChange();
+              } else {
+                villageSelect.value = "custom";
+                onVillageChange();
+                const customInput = document.getElementById('custom-village-input');
+                if (customInput) customInput.value = village;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (lat && lon) {
+      const formData = new FormData();
+      formData.append('latitude', lat);
+      formData.append('longitude', lon);
+      
+      fetch("{% url 'web:update_location' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("Background Coordinates Synced:", data);
+      })
+      .catch(err => {
+        console.error("Failed to sync background Coordinates:", err);
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    toggleProviderFields();
+    loadLocationData();
+  });
+</script>
+{% endblock %}

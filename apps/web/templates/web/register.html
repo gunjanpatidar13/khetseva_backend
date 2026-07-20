@@ -1,0 +1,60 @@
+{% extends 'web/base.html' %}
+
+{% block title %}KhetSeva - Complete Registration Onboarding{% endblock %}
+
+{% block content %}
+<div style="max-width: 550px; margin: 40px auto; padding: 0 16px;">
+  <div class="card" style="padding: 40px; border-radius: 24px;">
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h2 style="font-size: 26px; color: var(--primary);">Complete Your Profile</h2>
+      <p style="color: var(--text-muted); font-size: 15px; margin-top: 6px;">Registering mobile number: <strong>+91 {{ mobile }}</strong></p>
+    </div>
+
+    <form method="post" action="{% url 'web:register' %}">
+      {% csrf_token %}
+      
+      <div class="form-group">
+        <label for="full_name">Full Name</label>
+        <input type="text" name="full_name" id="full_name" class="form-control" placeholder="e.g. Ramesh Kumar" required>
+      </div>
+
+      <div class="form-group">
+        <label for="role">App Role</label>
+        <select name="role" id="role" class="form-control" required>
+          <option value="FARMER">Farmer (Looking to book agricultural machinery)</option>
+          <option value="PROVIDER">Service Provider (Offering tractor, rotavator, or harvester services)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="village">Village / Local Area</label>
+        <input type="text" name="village" id="village" class="form-control" placeholder="e.g. Navipura" required>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="form-group">
+          <label for="district">District</label>
+          <input type="text" name="district" id="district" class="form-control" placeholder="e.g. Patiala" required>
+        </div>
+        <div class="form-group">
+          <label for="state">State</label>
+          <input type="text" name="state" id="state" class="form-control" placeholder="e.g. Punjab" required>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="form-group">
+          <label for="latitude">Latitude</label>
+          <input type="number" step="any" name="latitude" id="latitude" class="form-control" value="30.3398" required>
+        </div>
+        <div class="form-group">
+          <label for="longitude">Longitude</label>
+          <input type="number" step="any" name="longitude" id="longitude" class="form-control" value="76.3869" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px; padding: 14px;">Complete Registration</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

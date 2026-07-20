@@ -1,0 +1,396 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}KhetSeva - Directly Booking Machinery & Farming Services{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'web/style.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  <header>
+    <div class="navbar">
+      <a href="{% url 'web:login' %}" class="logo">
+        <span class="logo-brand-khet">Khet</span><span class="logo-brand-seva">SEVA</span>
+      </a>
+      
+      <ul class="nav-links">
+        {% if user.is_authenticated %}
+          <li style="display: flex; align-items: center; gap: 8px;">
+            {% if user.profile_picture %}
+              <img src="{{ user.profile_picture.url }}" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-light);">
+            {% else %}
+              <div style="width: 32px; height: 32px; border-radius: 50%; background-color: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">
+                {{ user.full_name|slice:":1"|upper }}
+              </div>
+            {% endif %}
+            <span style="font-weight: 600; font-size: 14px; color: var(--text-muted);">
+              Logged in as: <strong style="color: var(--text);">{{ user.full_name }}</strong> ({{ user.role }})
+            </span>
+          </li>
+          {% if user.role == 'FARMER' %}
+            <li><a href="{% url 'web:farmer_dashboard' %}" class="nav-link">Farmer Dashboard</a></li>
+          {% elif user.role == 'PROVIDER' %}
+            <li><a href="{% url 'web:provider_dashboard' %}" class="nav-link">Provider Dashboard</a></li>
+          {% endif %}
+          <li><a href="{% url 'web:profile' %}" class="nav-link">My Profile</a></li>
+          <li><a href="{% url 'web:logout' %}" class="btn btn-outline" style="padding: 6px 16px; font-size: 13px;">Logout</a></li>
+        {% else %}
+          <li><a href="{% url 'web:login' %}" class="btn btn-primary" style="padding: 8px 20px; border-radius: 12px;">Get Started</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <div class="messages-container">
+        {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'success' %}success{% else %}info{% endif %}">
+            <span style="font-size: 16px;">{% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}⚠️{% else %}ℹ️{% endif %}</span>
+            <span style="flex-grow: 1;">{{ message }}</span>
+            <button class="alert-close" onclick="this.parentElement.remove()">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><line x1="9" y1="3" x2="3" y2="9"></line><line x1="3" y1="3" x2="9" y2="9"></line></svg>
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer style="margin-top: 60px; padding: 40px 0; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 14px;">
+    <div class="container">
+      <p>&copy; 2026 KhetSeva. Empowering Indian Farmers. Pair programmed with Antigravity AI.</p>
+    </div>
+  </footer>
+
+  <!-- Global Lightbox Modal -->
+  <div id="lightbox-modal" class="modal" style="display: none; background: rgba(0, 0, 0, 0.9);">
+    <span class="modal-close" onclick="closeLightbox()" style="color: white; font-size: 40px; top: 20px; right: 30px; z-index: 1020;">&times;</span>
+    <div style="position: relative; max-width: 800px; width: 90%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: var(--radius); background: #000;">
+      <div id="lightbox-wrapper" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+        <!-- Images will be populated dynamically -->
+      </div>
+      <button class="slider-arrow prev" id="lightbox-prev" onclick="lightboxPrev(event)" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 48px; height: 48px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; z-index: 1010;">&lt;</button>
+      <button class="slider-arrow next" id="lightbox-next" onclick="lightboxNext(event)" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 48px; height: 48px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; z-index: 1010;">&gt;</button>
+    </div>
+  </div>
+
+  <script>
+    let currentLightboxIndex = 0;
+    let lightboxImages = [];
+
+    function openLightbox(eqId, startIndex) {
+      const sliderWrapper = document.getElementById(`slider-${eqId}`);
+      if (!sliderWrapper) return;
+      
+      const slides = sliderWrapper.getElementsByTagName('img');
+      lightboxImages = Array.from(slides).map(img => img.src);
+      currentLightboxIndex = startIndex;
+      
+      const lightboxWrapper = document.getElementById('lightbox-wrapper');
+      lightboxWrapper.innerHTML = '';
+      
+      lightboxImages.forEach(src => {
+        const img = document.createElement('img');
+        img.src = src;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.style.flexShrink = '0';
+        lightboxWrapper.appendChild(img);
+      });
+      
+      updateLightboxPosition();
+      
+      const prevBtn = document.getElementById('lightbox-prev');
+      const nextBtn = document.getElementById('lightbox-next');
+      if (lightboxImages.length <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+      } else {
+        prevBtn.style.display = 'flex';
+        nextBtn.style.display = 'flex';
+      }
+      
+      const modal = document.getElementById('lightbox-modal');
+      modal.style.display = 'flex';
+      modal.classList.add('active');
+    }
+
+    function closeLightbox() {
+      const modal = document.getElementById('lightbox-modal');
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+    }
+
+    function lightboxPrev(e) {
+      if (e) e.stopPropagation();
+      const count = lightboxImages.length;
+      currentLightboxIndex = (currentLightboxIndex - 1 + count) % count;
+      updateLightboxPosition();
+    }
+
+    function lightboxNext(e) {
+      if (e) e.stopPropagation();
+      const count = lightboxImages.length;
+      currentLightboxIndex = (currentLightboxIndex + 1) % count;
+      updateLightboxPosition();
+    }
+
+    function updateLightboxPosition() {
+      const wrapper = document.getElementById('lightbox-wrapper');
+      wrapper.style.transform = `translateX(-${currentLightboxIndex * 100}%)`;
+    }
+
+    // Close when clicking overlay background
+    document.getElementById('lightbox-modal').addEventListener('click', function(e) {
+      if (e.target.id === 'lightbox-modal') {
+        closeLightbox();
+      }
+    });
+  </script>
+
+  <!-- Global Custom Confirmation Modal -->
+  <div id="global-confirm-modal" class="modal" style="display: none; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 10000;">
+    <div class="modal-content" style="max-width: 420px; width: 90%; text-align: center; padding: 32px; border-radius: var(--radius); box-shadow: 0 20px 50px rgba(0,0,0,0.25); background: var(--card-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border);">
+      <div style="font-size: 48px; margin-bottom: 16px;" id="confirm-modal-icon">⚠️</div>
+      <h3 id="confirm-modal-title" style="font-size: 20px; font-weight: 700; margin-bottom: 12px; color: var(--text);">Confirm Action</h3>
+      <p id="confirm-modal-message" style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 24px;"></p>
+      
+      <div style="display: flex; gap: 12px; width: 100%;">
+        <button type="button" onclick="closeConfirmModal()" class="btn" style="flex: 1; background-color: var(--bg); color: var(--text-muted); border: 1px solid var(--border); padding: 10px 16px; font-size: 14px; border-radius: 10px; font-weight: 600; cursor: pointer; height: 42px; transition: var(--transition);">
+          Cancel
+        </button>
+        <button type="button" id="confirm-modal-submit" onclick="handleGlobalConfirm()" class="btn btn-primary" style="flex: 1; background-color: var(--primary); color: white; padding: 10px 16px; font-size: 14px; border-radius: 10px; font-weight: 600; cursor: pointer; height: 42px; border: none; transition: var(--transition);">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let confirmCallback = null;
+
+    function showConfirmModal(message, title, onConfirm) {
+      document.getElementById('confirm-modal-title').innerText = title || 'Are you sure?';
+      document.getElementById('confirm-modal-message').innerText = message;
+      confirmCallback = onConfirm;
+      
+      const modal = document.getElementById('global-confirm-modal');
+      modal.style.display = 'flex';
+      modal.classList.add('active');
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('global-confirm-modal');
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+      confirmCallback = null;
+    }
+
+    function handleGlobalConfirm() {
+      if (confirmCallback) {
+        confirmCallback();
+      }
+      closeConfirmModal();
+    }
+
+    // Intercept form submissions containing data-confirm attributes globally
+    document.addEventListener('DOMContentLoaded', function() {
+      // Global field validator helper
+      window.validateField = function(field) {
+        if (field.type === 'hidden' || field.disabled || field.readOnly) return true;
+        
+        let isValid = field.checkValidity();
+        let parent = field.parentElement;
+        
+        // Custom check for minimum hours in booking modal
+        if (field.id === 'estimated_hours' && parseFloat(field.value) < 1.0) {
+          isValid = false;
+        }
+        
+        // Remove existing error message
+        const existingError = parent.querySelector('.validation-error-msg');
+        if (existingError) {
+          existingError.remove();
+        }
+        
+        if (!isValid) {
+          field.classList.add('is-invalid');
+          const errorSpan = document.createElement('span');
+          errorSpan.className = 'validation-error-msg';
+          
+          let msg = field.validationMessage;
+          if (field.validity.valueMissing) {
+            msg = "This field is required.";
+          } else if (field.validity.tooShort) {
+            msg = `Minimum ${field.minLength} characters required.`;
+          } else if (field.validity.rangeUnderflow) {
+            msg = `Value must be at least ${field.min}.`;
+          } else if (field.id === 'estimated_hours' && parseFloat(field.value) < 1.0) {
+            msg = "Duration must be at least 1 hour.";
+          }
+          
+          errorSpan.innerText = msg;
+          field.after(errorSpan);
+          return false;
+        } else {
+          field.classList.remove('is-invalid');
+          return true;
+        }
+      };
+
+      // Set up novalidate and dynamic checking on all post forms
+      document.querySelectorAll('form').forEach(form => {
+        if (form.method.toLowerCase() === 'post') {
+          form.setAttribute('novalidate', 'true');
+          
+          form.querySelectorAll('input, select, textarea').forEach(input => {
+            ['input', 'change', 'blur'].forEach(evt => {
+              input.addEventListener(evt, () => window.validateField(input));
+            });
+          });
+        }
+      });
+
+      // Submit listener
+      document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (form.method.toLowerCase() !== 'post') return;
+        
+        // 1. Perform validation first
+        let isFormValid = true;
+        form.querySelectorAll('input, select, textarea').forEach(field => {
+          const ok = window.validateField(field);
+          if (!ok) isFormValid = false;
+        });
+        
+        if (!isFormValid) {
+          e.preventDefault();
+          e.stopPropagation();
+          const firstInvalid = form.querySelector('.is-invalid');
+          if (firstInvalid) {
+            firstInvalid.focus();
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
+        }
+        
+        // 2. Perform confirmation second
+        if (form.hasAttribute('data-confirm')) {
+          if (form.dataset.confirmed === 'true') {
+            return;
+          }
+          
+          e.preventDefault();
+          e.stopPropagation();
+          const message = form.getAttribute('data-confirm');
+          const title = form.getAttribute('data-confirm-title') || 'Confirm Action';
+          const icon = form.getAttribute('data-confirm-icon') || '⚠️';
+          
+          document.getElementById('confirm-modal-icon').innerText = icon;
+          
+          const submitBtn = document.getElementById('confirm-modal-submit');
+          if (icon === '🗑️' || title.toLowerCase().includes('delete') || title.toLowerCase().includes('reject')) {
+            submitBtn.style.backgroundColor = '#d32f2f';
+            submitBtn.innerText = 'Yes, Delete';
+          } else {
+            submitBtn.style.backgroundColor = 'var(--primary)';
+            submitBtn.innerText = 'Confirm';
+          }
+          
+          showConfirmModal(message, title, function() {
+            form.dataset.confirmed = 'true';
+            form.submit();
+          });
+        }
+      });
+    });
+  </script>
+
+  <!-- Floating Profile Reminder Popup -->
+  {% if user.is_authenticated and not profile_complete %}
+    <div id="profile-reminder-popup" style="display: none; position: fixed; bottom: 30px; right: 30px; width: 340px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.1); border-radius: var(--radius); padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 9999; animation: slideInUp 0.5s ease;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 24px;">📝</span>
+        <div style="flex: 1;">
+          <h4 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 700; color: var(--primary-dark);">Complete Your Profile</h4>
+          <p style="margin: 0 0 16px 0; font-size: 13px; color: var(--text-muted); line-height: 1.5;">Please update your profile details (name, address) to activate machinery booking and listing.</p>
+          <div style="display: flex; gap: 8px;">
+            <a href="{% url 'web:profile' %}" class="btn btn-primary" style="padding: 8px 12px; font-size: 12px; height: 32px; flex: 1.2;">Update Now</a>
+            <button onclick="dismissProfileReminder()" class="btn btn-outline" style="padding: 8px 12px; font-size: 12px; height: 32px; flex: 0.8; color: var(--text-muted);">Later</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      let reminderTimer = null;
+      
+      function showProfileReminder() {
+        const popup = document.getElementById('profile-reminder-popup');
+        if (popup) {
+          popup.style.display = 'block';
+        }
+      }
+      
+      function dismissProfileReminder() {
+        const popup = document.getElementById('profile-reminder-popup');
+        if (popup) {
+          popup.style.display = 'none';
+        }
+        // Set reminder again in 3 minutes (180,000ms)
+        startReminderTimer();
+      }
+      
+      function startReminderTimer() {
+        if (reminderTimer) clearTimeout(reminderTimer);
+        reminderTimer = setTimeout(showProfileReminder, 180000); // 3 minutes
+      }
+
+      function autoUpdateUserLocation() {
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            const formData = new FormData();
+            formData.append('latitude', lat);
+            formData.append('longitude', lng);
+            
+            fetch("{% url 'web:update_location' %}", {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+              },
+              body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+              console.log("Background Geolocation Synced:", data);
+            })
+            .catch(err => {
+              console.error("Failed to sync background Geolocation:", err);
+            });
+          });
+        }
+      }
+      
+      document.addEventListener('DOMContentLoaded', function() {
+        startReminderTimer();
+        autoUpdateUserLocation();
+      });
+    </script>
+  {% endif %}
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

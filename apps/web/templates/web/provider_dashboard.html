@@ -1,0 +1,545 @@
+{% extends 'web/base.html' %}
+
+{% block title %}KhetSeva Partner - Provider Dashboard{% endblock %}
+
+{% block content %}
+{% if not profile_complete %}
+  <div class="alert alert-error" style="margin-bottom: 24px; animation: fadeIn 0.4s ease;">
+    <span>⚠️ <strong>Profile Incomplete:</strong> Your profile details are incomplete. Please <a href="{% url 'web:profile' %}" style="color: inherit; font-weight: 700; text-decoration: underline;">complete your profile</a> (Full Name, Village, District, State) to list machinery.</span>
+  </div>
+{% endif %}
+<!-- Greeting & Partner Stats Banner -->
+<div class="hero-banner" style="background: linear-gradient(135deg, #1b5e20, #004d40);">
+  <div class="hero-banner-content">
+    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+      {% if user.profile_picture %}
+        <img src="{{ user.profile_picture.url }}" alt="Avatar" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(255, 255, 255, 0.3); box-shadow: var(--shadow);">
+      {% else %}
+        <div style="width: 64px; height: 64px; border-radius: 50%; background-color: rgba(255,255,255,0.15); color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; border: 3px solid rgba(255,255,255,0.3);">
+          {{ user.full_name|slice:":1"|upper }}
+        </div>
+      {% endif %}
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+          <span class="badge" style="background-color: var(--accent); color: white; font-weight: 700;">KHETSEVA PARTNER</span>
+          {% if provider_profile.verification_status == 'APPROVED' %}
+            <span class="badge" style="background-color: #e8f5e9; color: #2e7d32; font-weight: 700; border: 1px solid rgba(46,125,50,0.2);">✓ VERIFIED</span>
+          {% elif provider_profile.verification_status == 'REJECTED' %}
+            <span class="badge" style="background-color: #ffebee; color: #c62828; font-weight: 700; border: 1px solid rgba(198,40,40,0.2);">❌ REJECTED</span>
+          {% else %}
+            <span class="badge" style="background-color: #fff8e1; color: #f57f17; font-weight: 700; border: 1px solid rgba(245,127,23,0.2);">⏳ KYC PENDING</span>
+          {% endif %}
+        </div>
+        <h1 style="font-size: 32px; font-weight: 800; margin-bottom: 8px; color: white;">Welcome, {{ user.full_name }}!</h1>
+        <p style="opacity: 0.9; font-size: 16px; color: white; margin: 0;">
+          Village: <strong>{{ provider_profile.village|default:"Not Set" }}</strong> | Total Completed Jobs: <strong>{{ provider_profile.jobs_completed|default:0 }}</strong>
+        </p>
+      </div>
+    </div>
+    
+    <div class="coins-badge" style="background-color: #e0f2f1; color: #00796b;">
+      ★ {{ provider_profile.rating|floatformat:1 }} Rating
+    </div>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('inbound-bookings-tab', this)">📅 Booking Requests & Jobs</button>
+  <button class="tab-btn" onclick="switchTab('machinery-tab', this)">⚙️ Manage My Machinery</button>
+</div>
+
+<!-- Tab 1: Inbound Bookings & Jobs -->
+<div id="inbound-bookings-tab" class="tab-content active-content">
+  {% if provider_profile.verification_status != 'APPROVED' %}
+    <div class="alert alert-error" style="margin-bottom: 24px; animation: fadeIn 0.4s ease;">
+      <span>⚠️ <strong>KYC Verification Required:</strong> Your profile documents are pending verification. You can review/upload documents on <a href="{% url 'web:profile' %}" style="color: inherit; font-weight: 700; text-decoration: underline;">your profile page</a>. You will be able to accept booking requests once approved by admin.</span>
+    </div>
+  {% endif %}
+  
+  {% if bookings %}
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      {% for booking in bookings %}
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px;">
+            <div>
+              <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">{{ booking.equipment.equipment_name }}</h3>
+              <p style="color: var(--text-muted); font-size: 13px;">Booking ID: {{ booking.id }} | Date Requested: {{ booking.booking_date }}</p>
+            </div>
+            <span class="badge badge-{{ booking.booking_status|lower }}">
+              {{ booking.booking_status }}
+            </span>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
+            <div>
+              <p style="font-size: 13px; color: var(--text-muted);">Farmer Client</p>
+              <p style="font-weight: 600; font-size: 15px;">{{ booking.farmer_name }}</p>
+            </div>
+            <div>
+              <p style="font-size: 13px; color: var(--text-muted);">Estimated Hours</p>
+              <p style="font-weight: 600; font-size: 15px;">{{ booking.estimated_hours }} Hours</p>
+            </div>
+            <div>
+              <p style="font-size: 13px; color: var(--text-muted);">Preferred Date</p>
+              <p style="font-weight: 600; font-size: 15px;">{{ booking.preferred_date|default:"Not specified" }}</p>
+            </div>
+            <div>
+              <p style="font-size: 13px; color: var(--text-muted);">Total Income</p>
+              <p style="font-weight: 700; font-size: 16px; color: var(--primary);">₹{{ booking.total_amount }}</p>
+            </div>
+          </div>
+
+          <!-- Unlocked Farmer Phone Number & Route Navigation -->
+          {% if booking.booking_status in 'CONFIRMED STARTED COMPLETED' %}
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              {% if booking.farmer_mobile %}
+                <a href="tel:+91{{ booking.farmer_mobile }}" style="text-decoration: none; background-color: var(--primary-light); color: var(--primary-dark); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(46, 125, 50, 0.2); display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; font-weight: 700; font-size: 14px; transition: var(--transition);">
+                  📞 Call Farmer: +91 {{ booking.farmer_mobile }}
+                </a>
+              {% endif %}
+              
+              {% if booking.final_latitude and provider_profile.latitude %}
+                <button type="button" class="btn btn-outline" onclick="openNavigationMap('{{ provider_profile.latitude }}', '{{ provider_profile.longitude }}', '{{ booking.final_latitude }}', '{{ booking.final_longitude }}', '{{ booking.farmer_name|escapejs }}', '{{ booking.farmer_mobile|escapejs }}', '{{ booking.farmer.farmer_profile.village|escapejs }}', '{{ booking.delivery_address_type|escapejs }}')" style="padding: 12px 20px; border-radius: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; border-color: var(--primary); color: var(--primary); font-size: 14px;">
+                  📍 Navigate to Field (Map)
+                </button>
+              {% endif %}
+            </div>
+          {% else %}
+            <div style="background-color: #f5f5f5; color: var(--text-muted); padding: 12px 20px; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 500;">
+              🔒 Farmer contact details locked until booking is accepted and payment is completed.
+            </div>
+          {% endif %}
+
+          <!-- Action buttons for Provider -->
+          <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 12px; display: flex; justify-content: flex-end; gap: 12px;">
+            {% if booking.booking_status == 'PENDING' %}
+              <form method="post" action="{% url 'web:reject_booking' booking.id %}" data-confirm="Are you sure you want to reject this booking request?" data-confirm-title="Reject Booking" data-confirm-icon="❌" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger" style="padding: 10px 20px; font-size: 14px;">Reject</button>
+              </form>
+              {% if provider_profile.verification_status == 'APPROVED' %}
+                <form method="post" action="{% url 'web:accept_booking' booking.id %}" data-confirm="Are you sure you want to accept and approve this booking request?" data-confirm-title="Accept Booking" data-confirm-icon="✅" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-primary" style="padding: 10px 20px; font-size: 14px;">Accept & Approve</button>
+                </form>
+              {% else %}
+                <button type="button" class="btn btn-primary" onclick="showKycWarningAlert()" style="padding: 10px 20px; font-size: 14px; opacity: 0.6; cursor: not-allowed; display: inline-flex; align-items: center; gap: 6px;">
+                  🔒 Accept & Approve
+                </button>
+              {% endif %}
+            {% endif %}
+            
+            {% if booking.booking_status == 'CONFIRMED' %}
+              <form method="post" action="{% url 'web:start_job' booking.id %}" data-confirm="Do you want to start the work job for this booking now?" data-confirm-title="Start Job" data-confirm-icon="🚀">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" style="padding: 10px 20px; font-size: 14px;">Start Work Job</button>
+              </form>
+            {% endif %}
+            
+            {% if booking.booking_status == 'STARTED' %}
+              <form method="post" action="{% url 'web:complete_job' booking.id %}" data-confirm="Has the machinery work been completed successfully?" data-confirm-title="Complete Job" data-confirm-icon="🏁">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-accent" style="padding: 10px 20px; font-size: 14px;">Complete Job</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 60px 20px; border-radius: var(--radius);">
+      <p style="color: var(--text-muted); font-size: 16px;">You have no active requested or in-progress bookings.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Tab 2: Machinery Profile Management -->
+<div id="machinery-tab" class="tab-content" style="display: none;">
+  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; flex-wrap: wrap;">
+    <!-- Left: Register Form -->
+    <div>
+      <div class="card" style="padding: 30px; border-radius: var(--radius); position: sticky; top: 100px;">
+        <h3 style="font-size: 20px; color: var(--primary); margin-bottom: 20px;">Register New Machinery</h3>
+        <form method="post" action="{% url 'web:add_equipment' %}" enctype="multipart/form-data" id="list-machinery-form">
+          {% csrf_token %}
+          
+          <div class="form-group">
+            <label for="category_id">Machinery Category</label>
+            <select name="category_id" id="category_id" class="form-control" required>
+              {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="equipment_name">Model / Name</label>
+            <input type="text" name="equipment_name" id="equipment_name" class="form-control" placeholder="e.g. John Deere 5050D + Rotavator" required>
+          </div>
+
+          <div class="form-group">
+            <label for="price_per_hour">Rental Price (per Hour in ₹)</label>
+            <input type="number" name="price_per_hour" id="price_per_hour" class="form-control" placeholder="e.g. 800" min="50" required>
+          </div>
+
+          <div class="form-group">
+            <label for="images">Machine Images (Select multiple)</label>
+            <input type="file" name="images" id="images" class="form-control" accept="image/*" multiple required>
+          </div>
+
+          <div class="form-group">
+            <label for="description">Brief Description</label>
+            <textarea name="description" id="description" class="form-control" rows="3" placeholder="Describe HP power, condition, and tilling width..." required></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">List Machinery</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Right: Machinery Catalog List -->
+    <div>
+      <h3 style="font-size: 22px; margin-bottom: 20px;">My Registered Machinery</h3>
+      {% if equipments %}
+        <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+          {% for eq in equipments %}
+            <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 420px;">
+              <div>
+                {% if eq.images.all %}
+                  <div class="image-slider-container" style="position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; background-color: #000; margin-bottom: 16px; border: 1px solid var(--border);">
+                    <div class="slides-wrapper" id="slider-{{ eq.id }}" style="display: flex; width: 100%; height: 100%; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+                      {% for img in eq.images.all %}
+                        <img src="{{ img.image.url }}" class="slider-slide" style="width: 100%; height: 100%; object-fit: cover; flex-shrink: 0; cursor: pointer;" onclick="openLightbox('{{ eq.id }}', {{ forloop.index0 }})" title="Click to open full zoom gallery">
+                      {% endfor %}
+                    </div>
+                    {% if eq.images.count > 1 %}
+                      <button type="button" class="slider-arrow prev" onclick="slidePrev(event, '{{ eq.id }}')" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; z-index: 10;">&lt;</button>
+                      <button type="button" class="slider-arrow next" onclick="slideNext(event, '{{ eq.id }}')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; z-index: 10;">&gt;</button>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <div style="background-color: var(--primary-light); color: var(--primary); width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; font-size: 48px; border-radius: 12px; margin-bottom: 16px;">
+                    🚜
+                  </div>
+                {% endif %}
+
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                  <span class="badge" style="background-color: var(--primary-light); color: var(--primary); font-weight: 700;">
+                    {{ eq.category.name }}
+                  </span>
+                  <span style="font-weight: 800; font-size: 16px; color: var(--primary);">
+                    ₹{{ eq.price_per_hour|floatformat:0 }}/hr
+                  </span>
+                </div>
+                
+                <h4 style="font-size: 18px; margin-bottom: 6px;">{{ eq.equipment_name }}</h4>
+                <p style="color: var(--text-muted); font-size: 13px; line-height: 1.4; margin-bottom: 12px;">{{ eq.description|truncatewords:15 }}</p>
+              </div>
+              
+              <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: flex; gap: 8px; width: 100%;">
+                <button type="button" onclick="openEditModal('{{ eq.id }}', '{{ eq.equipment_name|escapejs }}', '{{ eq.price_per_hour|floatformat:0 }}', '{{ eq.description|escapejs }}', '{{ eq.category.id }}')" class="btn" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; background-color: var(--primary-light); color: var(--primary); border: 1px solid rgba(46, 125, 50, 0.2); padding: 8px 12px; font-size: 13px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; gap: 6px; height: 38px;">
+                  ✏️ Edit
+                </button>
+                
+                <form method="post" action="{% url 'web:delete_equipment' eq.id %}" data-confirm="Are you sure you want to delete this machinery?" data-confirm-title="Delete Machinery" data-confirm-icon="🗑️" style="flex: 1; margin: 0; display: flex;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; padding: 8px 12px; font-size: 13px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; gap: 6px; height: 38px;">
+                    🗑️ Delete
+                  </button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card" style="text-align: center; padding: 60px 20px; border-radius: var(--radius);">
+          <p style="color: var(--text-muted); font-size: 16px;">You have no registered machinery listed yet. Fill the form to get started.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Edit Machinery Modal Overlay -->
+<div id="edit-modal" class="modal">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeEditModal()">&times;</span>
+    <h3 style="font-size: 22px; color: var(--primary); margin-bottom: 20px;">Edit Machinery Details</h3>
+    
+    <form method="post" id="edit-form" action="" enctype="multipart/form-data">
+      {% csrf_token %}
+      
+      <div class="form-group">
+        <label for="edit_category_id">Machinery Category</label>
+        <select name="category_id" id="edit_category_id" class="form-control" required>
+          {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="edit_equipment_name">Model / Name</label>
+        <input type="text" name="equipment_name" id="edit_equipment_name" class="form-control" required>
+      </div>
+
+      <div class="form-group">
+        <label for="edit_price_per_hour">Rental Price (per Hour in ₹)</label>
+        <input type="number" name="price_per_hour" id="edit_price_per_hour" class="form-control" min="50" required>
+      </div>
+
+      <div class="form-group">
+        <label for="edit_images">Replace Images (Optional)</label>
+        <input type="file" name="images" id="edit_images" class="form-control" accept="image/*" multiple>
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Leave empty to keep existing machinery images.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="edit_description">Brief Description</label>
+        <textarea name="description" id="edit_description" class="form-control" rows="3" required></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(tabId).style.display = 'block';
+    btn.classList.add('active');
+  }
+
+  const sliderPositions = {};
+
+  function slidePrev(e, eqId) {
+    if (e) e.stopPropagation();
+    const wrapper = document.getElementById(`slider-${eqId}`);
+    if (!wrapper) return;
+    const slides = wrapper.getElementsByTagName('img');
+    const count = slides.length;
+    if (count <= 1) return;
+    if (!(eqId in sliderPositions)) sliderPositions[eqId] = 0;
+    
+    sliderPositions[eqId] = (sliderPositions[eqId] - 1 + count) % count;
+    wrapper.style.transform = `translateX(-${sliderPositions[eqId] * 100}%)`;
+  }
+
+  function slideNext(e, eqId) {
+    if (e) e.stopPropagation();
+    const wrapper = document.getElementById(`slider-${eqId}`);
+    if (!wrapper) return;
+    const slides = wrapper.getElementsByTagName('img');
+    const count = slides.length;
+    if (count <= 1) return;
+    if (!(eqId in sliderPositions)) sliderPositions[eqId] = 0;
+    
+    sliderPositions[eqId] = (sliderPositions[eqId] + 1) % count;
+    wrapper.style.transform = `translateX(-${sliderPositions[eqId] * 100}%)`;
+  }
+
+  function openEditModal(eqId, name, price, description, catId) {
+    const form = document.getElementById('edit-form');
+    form.action = `/equipment/${eqId}/edit/`;
+    
+    document.getElementById('edit_equipment_name').value = name;
+    document.getElementById('edit_price_per_hour').value = price;
+    document.getElementById('edit_description').value = description;
+    document.getElementById('edit_category_id').value = catId;
+    
+    const modal = document.getElementById('edit-modal');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+  }
+
+  function closeEditModal() {
+    const modal = document.getElementById('edit-modal');
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+
+  document.getElementById('list-machinery-form')?.addEventListener('submit', function(e) {
+    if ("{{ profile_complete }}" === "False") {
+      e.preventDefault();
+      let container = document.querySelector('.messages-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.className = 'messages-container';
+        document.body.appendChild(container);
+      }
+      const alertDiv = document.createElement('div');
+      alertDiv.className = 'alert alert-error';
+      alertDiv.innerHTML = `
+        <span style="font-size: 16px;">⚠️</span>
+        <span style="flex-grow: 1;">Please complete your profile details first before listing machinery! Redirecting...</span>
+        <button class="alert-close" onclick="this.parentElement.remove()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><line x1="9" y1="3" x2="3" y2="9"></line><line x1="3" y1="3" x2="9" y2="9"></line></svg>
+        </button>
+      `;
+      container.appendChild(alertDiv);
+      setTimeout(function() {
+        window.location.href = "{% url 'web:profile' %}";
+      }, 1500);
+    }
+  });
+
+  window.addEventListener('click', function(event) {
+    const editModal = document.getElementById('edit-modal');
+    if (event.target == editModal) {
+      closeEditModal();
+    }
+  });
+  
+  function showKycWarningAlert() {
+    let container = document.querySelector('.messages-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'messages-container';
+      document.body.appendChild(container);
+    }
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-error';
+    alertDiv.innerHTML = `
+      <span style="font-size: 16px;">⚠️</span>
+      <span style="flex-grow: 1;">KYC Pending: Please complete KYC documents and wait for admin verification to accept bookings.</span>
+      <button class="alert-close" onclick="this.parentElement.remove()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><line x1="9" y1="3" x2="3" y2="9"></line><line x1="3" y1="3" x2="9" y2="9"></line></svg>
+      </button>
+    `;
+    container.appendChild(alertDiv);
+  }
+</script>
+
+<!-- Leaflet and Leaflet Routing Machine CSS & JS Assets -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+<!-- Navigation Map Modal (Leaflet routing overlay) -->
+<div id="map-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 10000; display: none; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.3s ease;">
+  <div class="card" style="width: 100%; max-width: 900px; height: 80vh; padding: 0; overflow: hidden; border-radius: 20px; display: flex; flex-direction: column; position: relative;">
+    
+    <!-- Map Header -->
+    <div style="padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: white; z-index: 1100;">
+      <div>
+        <h3 style="font-size: 18px; font-weight: 800; color: var(--primary); margin: 0;">🗺️ Travel Route to Farmer's Field</h3>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
+          <p id="map-farmer-info" style="font-size: 13px; color: var(--text-muted); margin: 0;"></p>
+          <span id="map-destination-type" class="badge" style="background-color: var(--primary-light); color: var(--primary); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;"></span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-outline" onclick="closeNavigationMap()" style="padding: 8px 16px; border-radius: 8px; font-size: 13px;">✕ Close Map</button>
+    </div>
+    
+    <!-- Map Display Area -->
+    <div id="routing-map" style="flex-grow: 1; width: 100%; background: #f5f5f5; z-index: 1050;"></div>
+    
+    <!-- Map Info Card Overlay (floating on bottom left) -->
+    <div id="routing-info-card" style="position: absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 16px 20px; border-radius: var(--radius); box-shadow: var(--shadow); z-index: 2000; pointer-events: auto; display: none; width: 280px;">
+      <h4 style="font-size: 14px; font-weight: 800; color: var(--primary); margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">🚀 Navigation Details</h4>
+      <p style="font-size: 13px; color: var(--text); margin: 4px 0;"><strong>Distance:</strong> <span id="route-distance">-</span></p>
+      <p style="font-size: 13px; color: var(--text); margin: 4px 0;"><strong>Travel Time:</strong> <span id="route-duration">-</span></p>
+    </div>
+    
+  </div>
+</div>
+
+<script>
+  let routingMap = null;
+  let routingControl = null;
+
+  function openNavigationMap(pLat, pLon, fLat, fLon, farmerName, farmerMobile, farmerVillage, deliveryType) {
+    const modal = document.getElementById('map-modal');
+    const infoText = document.getElementById('map-farmer-info');
+    const destText = document.getElementById('map-destination-type');
+    
+    if (infoText) {
+      infoText.innerText = `Farmer: ${farmerName} | Village: ${farmerVillage} | Mobile: +91 ${farmerMobile}`;
+    }
+    
+    if (destText) {
+      destText.innerText = deliveryType === 'CURRENT' 
+        ? '📱 Geolocation'
+        : '🌾 Farm Address';
+    }
+    
+    modal.style.display = 'flex';
+    
+    // Wait for the modal to display to avoid container dimensions size bugs
+    setTimeout(() => {
+      if (!routingMap) {
+        routingMap = L.map('routing-map').setView([parseFloat(pLat), parseFloat(pLon)], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(routingMap);
+      } else {
+        routingMap.invalidateSize();
+      }
+      
+      // Clear old route control
+      if (routingControl) {
+        routingMap.removeControl(routingControl);
+      }
+      
+      // Create routing path
+      routingControl = L.Routing.control({
+        waypoints: [
+          L.latLng(parseFloat(pLat), parseFloat(pLon)),
+          L.latLng(parseFloat(fLat), parseFloat(fLon))
+        ],
+        routeWhileDragging: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
+        createMarker: function(i, waypoint, n) {
+          const markerIcon = L.divIcon({
+            html: i === 0 
+              ? `<div style="font-size: 24px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--primary); box-shadow: var(--shadow);">🚜</div>`
+              : `<div style="font-size: 24px; background: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 2px solid #d32f2f; box-shadow: var(--shadow);">🌾</div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+            className: ''
+          });
+          return L.marker(waypoint.latLng, { icon: markerIcon });
+        },
+        lineOptions: {
+          styles: [{ color: '#2e7d32', opacity: 0.8, weight: 6 }]
+        },
+        show: false
+      }).addTo(routingMap);
+      
+      routingControl.on('routesfound', function(e) {
+        const routes = e.routes;
+        const summary = routes[0].summary;
+        
+        const distKm = (summary.totalDistance / 1000).toFixed(1);
+        const durationMins = Math.round(summary.totalTime / 60);
+        
+        document.getElementById('route-distance').innerText = `${distKm} km`;
+        document.getElementById('route-duration').innerText = `${durationMins} mins`;
+        document.getElementById('routing-info-card').style.display = 'block';
+      });
+      
+    }, 200);
+  }
+
+  function closeNavigationMap() {
+    document.getElementById('map-modal').style.display = 'none';
+    document.getElementById('routing-info-card').style.display = 'none';
+  }
+
+  window.addEventListener('click', function(event) {
+    const mapModal = document.getElementById('map-modal');
+    if (event.target == mapModal) {
+      closeNavigationMap();
+    }
+  });
+</script>
+{% endblock %}
